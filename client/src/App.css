@@ -1,0 +1,40 @@
+.progress-bar {
+  animation-fill-mode: both;
+}
+
+.disc-player {
+  color: #f3f3f3;
+  animation: rotate 4s linear infinite;
+}
+
+.disc-player.waiting {
+  animation: none;
+}
+
+.disc-player.rewind {
+  animation: rotate 2.5s reverse linear infinite;
+}
+
+@keyframes rotate {
+  to {
+    rotate: 360deg;
+  }
+}
+
+@keyframes forward {
+  0% {
+    width: 0%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+@keyframes backward {
+  0% {
+    width: 100%;
+  }
+  100% {
+    width: 0%;
+  }
+}
