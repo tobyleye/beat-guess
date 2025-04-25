@@ -4,6 +4,9 @@
 
 .disc-player {
   color: #f3f3f3;
+}
+
+.disc-player.playing {
   animation: rotate 4s linear infinite;
 }
 

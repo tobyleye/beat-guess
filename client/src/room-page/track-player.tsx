@@ -155,9 +155,12 @@ export default function TrackPlayer({
               size={120}
               className={[
                 "disc-player",
-                waiting ? "waiting" : "",
-                playState === "backward" ? "rewind" : "",
-              ].join(" ")}
+                waiting && "waiting",
+                playState === "backward" && "rewind",
+                playState === "forward" && "playing",
+              ]
+                .filter(Boolean)
+                .join(" ")}
             />
           </Box>
 

@@ -6,18 +6,27 @@ import {
   Heading,
   Link as StyledLink,
   Text,
-  VStack,
 } from "@chakra-ui/react";
 import { Link, useNavigate } from "react-router";
 import { MusicNoteIcon } from "./icons/music-note";
-import { SpotifyLogo } from "./spotify-logo";
+import { SpotifyLogo } from "./icons/spotify-logo";
 import { User } from "./types";
+import { ReactNode } from "react";
 
-export default function LandingPage({ user }: { user: User | null }) {
+export default function LandingPage({
+  user,
+  userMenu,
+}: {
+  user: User | null;
+  userMenu: ReactNode;
+}) {
   const navigate = useNavigate();
 
   return (
     <Flex direction="column" minH="100vh" bg="gray.900" color="white">
+      <Box position="fixed" top={5} right={8}>
+        {userMenu}
+      </Box>
       <Flex flex="1" direction="column" align="center" justify="center" p={4}>
         <Container maxW="md">
           <Box>
@@ -37,66 +46,52 @@ export default function LandingPage({ user }: { user: User | null }) {
             </Box>
 
             <Box mt={6} w="full">
-              {/* <SpotifyLoginButton /> */}
-              <Button
-                onClick={() => {
-                  if (user) {
-                    return navigate("/rooms");
-                  } else {
-                    window.location.assign(
-                      "http://localhost:1234/login/spotify"
-                    );
-                  }
-                }}
-                loadingText="Connecting..."
-                variant="spotify"
-                size="lg"
-                width="full"
-                leftIcon={<SpotifyLogo boxSize={5} />}
-              >
-                {user ? (
-                  <Box>
+              {user ? (
+                <Box>
+                  <Button
+                    onClick={() => {
+                      navigate("/rooms");
+                    }}
+                    loadingText="Connecting..."
+                    variant="spotify"
+                    size="lg"
+                    width="full"
+                    leftIcon={<SpotifyLogo boxSize={5} />}
+                  >
                     <Text>Continue as {user.displayName} </Text>
+                  </Button>
+                </Box>
+              ) : (
+                <Box>
+                  <Button
+                    onClick={() => {
+                      window.location.assign(
+                        "http://localhost:1234/login/spotify"
+                      );
+                    }}
+                    loadingText="Connecting..."
+                    variant="spotify"
+                    size="lg"
+                    width="full"
+                    leftIcon={<SpotifyLogo boxSize={5} />}
+                  >
+                    <Text>Login with Spotify </Text>
+                  </Button>
+
+                  <Box mt={4} display={"flex"} justifyContent={"center"}>
+                    <Button variant="link" textDecor={"underline"}>
+                      Continue as guest
+                    </Button>
                   </Box>
-                ) : (
-                  `Login with Spotify`
-                )}
-              </Button>
-              {/* <Box mt={4} display="flex" justifyContent="center">
-                <Button variant="link" color="red.300">
-                  Logout
-                </Button>
-              </Box> */}
-              <Text mt={6} textAlign="center" fontSize="sm" color="gray.500">
-                By continuing, you agree to our{" "}
-                <StyledLink
-                  as={Link}
-                  href="/terms"
-                  fontWeight="medium"
-                  color="brand.spotify"
-                  _hover={{ color: "brand.spotifyHover" }}
-                >
-                  Terms of Service
-                </StyledLink>{" "}
-                and{" "}
-                <StyledLink
-                  as={Link}
-                  href="/privacy"
-                  fontWeight="medium"
-                  color="brand.spotify"
-                  _hover={{ color: "brand.spotifyHover" }}
-                >
-                  Privacy Policy
-                </StyledLink>
-                .
-              </Text>
+                </Box>
+              )}
             </Box>
           </Box>
         </Container>
       </Flex>
 
       <Box py={6} textAlign="center" fontSize="sm" color="gray.500">
-        <Text>Not affiliated with Spotify AB</Text>
+        <Text>a thing built by Tobi</Text>
       </Box>
     </Flex>
   );

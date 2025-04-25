@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -24,10 +23,10 @@ type Message struct {
 	Data interface{} `json:"data"`
 }
 
-func parseMessage(message []byte) Message {
-	var msg Message
-	json.Unmarshal(message, &msg)
-	return msg
+type IncomingMessage struct {
+	Type   string      `json:"type"`
+	Data   interface{} `json:"data"`
+	Sender *client
 }
 
 func findRoom(rooms []*Room, roomId string) *Room {
@@ -83,7 +82,8 @@ func main() {
 
 	SessionStore := sessions.NewCookieStore([]byte("secretss.."))
 
-	rooms, err := ReadRooms()
+	rooms, err := createRooms(db)
+
 	if err != nil {
 		log.Fatal("unable to read rooms", err)
 	}
@@ -105,7 +105,11 @@ func main() {
 		rooms:        rooms,
 		connections:  map[string]*websocket.Conn{},
 		SessionStore: SessionStore,
+		message:      make(chan IncomingMessage),
+		db:           db,
 	}
+
+	go server.run()
 
 	handlers := Handlers{
 		Db:           db,

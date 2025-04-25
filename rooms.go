@@ -9,11 +9,14 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/tobyleye/beat-guess/models"
+	"gorm.io/gorm"
 )
 
-var TRACKS_PER_ROUND = 15
+var TRACKS_PER_ROUND = 4
 var DELAY_SECONDS = 5
 var PREVIEW_SECONDS = 30
+var DELAY_BETWEEN_ROUNDS_SECONDS = 8
 
 type Artists = []struct {
 	ExternalUrls struct {
@@ -46,13 +49,20 @@ type Room struct {
 	ID                string  `json:"id"`
 	Name              string  `json:"name"`
 	Tracks            []Track `json:"tracks"`
-	Players           map[string]Player
+	Players           map[string]*Player
 	PlayedTracks      []Track `json:"playedTracks"`
 	currentTrack      *Track
 	roundTracks       []Track
 	currentTrackIndex int
 	State             string `json:"state"`
 	Score             map[string]*GuessState
+	db                *gorm.DB
+}
+
+type RoomInfo struct {
+	Name   string   `json:"name"`
+	ID     string   `json:"id"`
+	Images []string `json:"images"`
 }
 
 func selectRoundTracks(tracks []Track) []Track {
@@ -70,36 +80,53 @@ func selectRoundTracks(tracks []Track) []Track {
 
 }
 
-func (r *Room) Join(playerId string, playerName string, userId string, conn *websocket.Conn) bool {
+func (r *Room) Join(client *client) bool {
+	playerId := client.Id
+	playerName, _ := client.UserData["name"].(string)
+	if playerName == "" {
+		playerName = fmt.Sprintf("player %d", len(r.Players)+1)
+	}
+
 	player := Player{
 		Name:      playerName,
 		Score:     0,
-		Websocket: conn,
-		UserId:    userId,
+		Websocket: client.Websocket,
+		UserId:    client.Id,
 	}
 
 	// initialize players map if it's nil
 	if r.Players == nil {
-		r.Players = make(map[string]Player)
+		r.Players = make(map[string]*Player)
 	}
 
-	r.Players[playerId] = player
-	fmt.Println("joined this room!", len(r.Players))
+	r.Players[playerId] = &player
+	fmt.Printf("player %s joined room %s (%d)", playerName, r.Name, len(r.Players))
 
 	// send the player the room info
-
-	r.Broadcast(Message{
-		Type: "room",
-		Data: map[string]interface{}{
-			"players":           r.FormatPlayers(),
-			"player":            player.Format(),
-			"tracksPerRound":    TRACKS_PER_ROUND,
-			"currentTrackIndex": r.currentTrackIndex,
-			"previewSeconds":    PREVIEW_SECONDS,
-			"delaySeconds":      DELAY_SECONDS,
-			"state":             r.State,
+	player.Websocket.WriteJSON(
+		Message{
+			Type: "room",
+			Data: map[string]interface{}{
+				"players":           r.FormatPlayers(),
+				"player":            player.Format(),
+				"tracksPerRound":    TRACKS_PER_ROUND,
+				"currentTrackIndex": r.currentTrackIndex,
+				"previewSeconds":    PREVIEW_SECONDS,
+				"delaySeconds":      DELAY_SECONDS,
+				"state":             r.State,
+			},
 		},
-	}, nil)
+	)
+
+	// broadcast join
+	r.Broadcast(Message{
+		Type: "newPlayer",
+		Data: map[string]interface{}{
+			"player":  player.Format(),
+			"players": r.FormatPlayers(),
+		},
+	}, player.Websocket)
+
 	return true
 }
 
@@ -158,14 +185,58 @@ func (r *Room) NewRound() {
 		// wait before playing next track
 		time.Sleep(time.Duration(DELAY_SECONDS) * time.Second)
 	}
+
+	r.savePlayersScore()
+	r.Broadcast(Message{
+		Type: "roundOver",
+		Data: map[string]interface{}{
+			"message": "game over! here's how you did",
+			"players": r.FormatPlayers(),
+		},
+	}, nil)
+	r.State = "waiting"
+
+	time.Sleep(time.Duration(DELAY_BETWEEN_ROUNDS_SECONDS) * time.Second)
+}
+
+func (r *Room) savePlayersScore() {
+	for _, player := range r.Players {
+		if player.UserId != "" {
+			// save player details in room
+			r.db.Save(&models.User{
+				UserId: player.UserId,
+				Score:  player.Score,
+			})
+		}
+
+	}
 }
 
 func (r *Room) Start() {
-	for {
+	// start rounds
+	go func() {
+		for {
 
-		r.NewRound()
-		// round over
+			r.NewRound()
+		}
+	}()
+
+}
+
+func (r *Room) GetInfo() RoomInfo {
+
+	sampleTracks := r.Tracks[:5]
+	images := []string{}
+	for _, track := range sampleTracks {
+		images = append(images, track.Images[0].URL)
 	}
+
+	return RoomInfo{
+		ID:     r.ID,
+		Name:   r.Name,
+		Images: images,
+	}
+
 }
 
 func (r *Room) submitGuess(playerId string, titleGuess string, artistGuess string) {
@@ -218,7 +289,6 @@ func (r *Room) submitGuess(playerId string, titleGuess string, artistGuess strin
 
 		} else if titleGuess != "" && titleGuess == trackTitle {
 			// title guess is correct
-			fmt.Println(">>> inside title guess...")
 			playerGuessState.GuessedTitle = true
 			player.Score += 5
 
@@ -228,7 +298,7 @@ func (r *Room) submitGuess(playerId string, titleGuess string, artistGuess strin
 					Data: map[string]interface{}{
 						"score":   5,
 						"correct": true,
-						"players": r.FormatPlayers(),
+						"player":  player.Format(),
 						"state":   playerGuessState,
 					},
 				},
@@ -237,12 +307,12 @@ func (r *Room) submitGuess(playerId string, titleGuess string, artistGuess strin
 			r.Broadcast(Message{
 				Type: "players",
 				Data: map[string]interface{}{
-					"player": player.Format(),
+					"players": r.FormatPlayers(),
 				},
-			}, player.Websocket)
+			}, nil)
 
 		} else if artistGuess != "" && isCorrectArtist(artistGuess, r.currentTrack.Artists) {
-			// artist guest is correct
+			// artist guess is correct
 
 			playerGuessState.GuessedArtist = true
 			player.Score += 10
@@ -253,7 +323,7 @@ func (r *Room) submitGuess(playerId string, titleGuess string, artistGuess strin
 					Data: map[string]interface{}{
 						"score":   10,
 						"correct": true,
-						"players": r.FormatPlayers(),
+						"player":  player.Format(),
 						"state":   playerGuessState,
 					},
 				},
@@ -262,9 +332,9 @@ func (r *Room) submitGuess(playerId string, titleGuess string, artistGuess strin
 			r.Broadcast(Message{
 				Type: "players",
 				Data: map[string]interface{}{
-					"player": player.Format(),
+					"players": r.FormatPlayers(),
 				},
-			}, player.Websocket)
+			}, nil)
 
 		} else {
 			// guess is wrong
@@ -283,7 +353,7 @@ func (r *Room) submitGuess(playerId string, titleGuess string, artistGuess strin
 	}
 }
 
-func ReadRooms() ([]*Room, error) {
+func createRooms(db *gorm.DB) ([]*Room, error) {
 	tracksFile, err := os.ReadFile("./tracks.json")
 	if err != nil {
 		return nil, err
@@ -292,6 +362,12 @@ func ReadRooms() ([]*Room, error) {
 	var rooms []*Room
 
 	json.Unmarshal(tracksFile, &rooms)
+
+	// initialize room players
+	for _, room := range rooms {
+		room.db = db
+		room.Players = make(map[string]*Player)
+	}
 
 	return rooms, nil
 }

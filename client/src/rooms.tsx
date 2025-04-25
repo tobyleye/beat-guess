@@ -17,15 +17,9 @@ import {
 } from "@chakra-ui/react";
 import { Users, Music, Clock, Lock } from "lucide-react";
 // import { CreateRoomButton } from "./create-room-button"
-import { UserHeader } from "./header";
+import { UserHeader } from "./components/header";
 import AppWebSocket from "./socket";
 import { Rooms } from "./types";
-
-type Room = {
-  name: string;
-  id: string;
-  images: string[];
-};
 
 export function RoomsList({
   socket,
@@ -33,7 +27,6 @@ export function RoomsList({
   setRooms,
 }: {
   socket: AppWebSocket | null;
-
   rooms: Rooms;
   setRooms: (rooms: Rooms) => void;
 }) {
@@ -67,9 +60,7 @@ export function RoomsList({
   let firstTimeLoading = isLoading && rooms.length === 0;
 
   return (
-    <Flex direction="column" minH="100vh" bg="gray.900" color="white">
-      <UserHeader />
-
+    <Flex direction="column">
       <Box as="main" flex="1">
         <Container maxW="5xl" px={4} py={8}>
           <Flex justify="space-between" align="center" mb={8}>

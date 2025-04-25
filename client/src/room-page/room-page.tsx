@@ -2,7 +2,7 @@ import { Box, Container, Flex, Heading } from "@chakra-ui/react";
 import { PlayersList } from "../components/players-list";
 import { AnswerInput } from "../components/answer-input";
 import { PastSongs } from "../components/past-songs";
-import { UserHeader } from "../header";
+import { UserHeader } from "../components/header";
 import { useParams } from "react-router";
 import AppWebSocket from "../socket";
 import { useEffect, useState } from "react";
@@ -86,13 +86,20 @@ export default function RoomPage({ socket }: { socket: AppWebSocket }) {
       setWaitingForRoom(false);
     };
 
-    const updatePlayers = (players: any) => {
-      setPlayers(players);
+    const updatePlayers = (data: any) => {
+      console.log("updating player..");
+      setPlayers((oldPlayers) => data.players ?? oldPlayers);
+    };
+
+    const handleNewPlayer = (data: any) => {
+      console.log("new player joined...");
+      console.log("handling new player..", data);
     };
 
     if (socket) {
       socket.on("playTrack", playTrack);
       socket.on("players", updatePlayers);
+      socket.on("newPlayer", handleNewPlayer);
 
       return () => {
         socket.remove("playTrack", playTrack);
@@ -102,8 +109,7 @@ export default function RoomPage({ socket }: { socket: AppWebSocket }) {
   }, [socket]);
 
   return (
-    <Flex direction="column" minH="100vh" bg="gray.900" color="white">
-      <UserHeader />
+    <Flex flexDirection="column" color="white">
       {currentTrack && (
         <div>
           <div>title: {currentTrack.name}</div>
@@ -115,8 +121,8 @@ export default function RoomPage({ socket }: { socket: AppWebSocket }) {
       {roomJoined && (
         <Box as="main" flex="1" py={8}>
           <Container maxW="6xl">
-            <Heading as="h1" size="lg" mb={6}>
-              Room: {params.roomId}
+            <Heading as="h1" size="lg" mb={6} textTransform="capitalize">
+              {params.roomId}
             </Heading>
 
             <Flex direction={{ base: "column", lg: "row" }} gap={8}>
@@ -145,10 +151,6 @@ export default function RoomPage({ socket }: { socket: AppWebSocket }) {
           </Container>
         </Box>
       )}
-
-      <Box as="footer" py={6} textAlign="center" fontSize="sm" color="gray.500">
-        <Box>BeatGuess — Test your music knowledge</Box>
-      </Box>
     </Flex>
   );
 }

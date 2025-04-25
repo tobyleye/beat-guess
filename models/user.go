@@ -8,4 +8,5 @@ type User struct {
 	DisplayName string    `gorm:"size:200" json:"name"`
 	Picture     string    `json:"picture"`
 	CreatedAt   time.Time `json:"created_at"`
+	Score       int       `gorm:"score"`
 }

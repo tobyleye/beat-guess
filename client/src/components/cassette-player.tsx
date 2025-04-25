@@ -1,5 +1,3 @@
-"use client";
-
 import { Box, Flex, Icon, IconButton, Text, VStack } from "@chakra-ui/react";
 import { Play, Pause, SkipBack, SkipForward } from "lucide-react";
 import { useState } from "react";

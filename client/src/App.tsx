@@ -2,16 +2,16 @@ import { useEffect, useState } from "react";
 import "./App.css";
 import { BrowserRouter, Routes, Route, Link, Outlet } from "react-router";
 import LandingPage from "./landing";
-import { Box, ChakraProvider, Text } from "@chakra-ui/react";
+import { Box, ChakraProvider, Flex, Text } from "@chakra-ui/react";
 import theme from "./theme";
 import { RoomsList } from "./rooms";
 import RoomPage from "./room-page/room-page";
-import WebSocketTest from "./ws-test";
 import AppWebSocket from "./socket";
 import { Room, User } from "./types";
 import * as uuid from "uuid";
 import { httpClient } from "./httpClient";
 import UserMenu from "./components/user-menu";
+import { UserHeader } from "./components/header";
 
 console.log("hello world");
 
@@ -24,12 +24,6 @@ function App() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loadingUser, setLoadingUser] = useState(true);
   const [user, setUser] = useState<User | null>(null);
-
-  // useEffect(() => {
-  //   socket.addEventListener("open", () => {
-  //     setConnected(true);
-  //   });
-  // }, [socket]);
 
   useEffect(() => {
     setLoadingUser(true);
@@ -59,48 +53,36 @@ function App() {
     }
   }, [user]);
 
-  if (loadingUser) {
-    return (
-      <Box display="flex" alignItems="center">
-        <Text>Loading...</Text>
-      </Box>
-    );
-  }
+  const logout = () => {};
 
-  console.log({ socket });
-
-  // const userMenu = (
-  //   <UserMenu
-  //     userName={user?.displayName}
-  //     userImage={user?.picture}
-  //     onLogout={() => {
-  //       window.location.assign("http://localhost:1234/logout");
-  //     }}
-  //   />
-  // );
+  const userMenu = user ? <UserMenu user={user} handleLogout={logout} /> : null;
 
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<LandingPage user={user} />} />
         <Route
-          path="/rooms"
-          element={
-            <RoomsList socket={socket} rooms={rooms} setRooms={setRooms} />
-          }
-        />
-
-        <Route path="/game/:roomId" element={<RoomPage socket={socket!} />} />
-        <Route path="/ws-test" element={<WebSocketTest />} />
-        {/* <Route
           path="/"
+          element={<LandingPage user={user} userMenu={userMenu} />}
+        />
+        <Route path="/kk" element={<div>say hello to me</div>} />
+        <Route
           element={
-            <>
-              <Box color="white">header...</Box>
-              <Outlet />
-            </>
+            <Flex direction="column" minH="100vh" color="white">
+              <UserHeader userMenu={userMenu} />
+              <Box as="main" flex={1}>
+                <Outlet />
+              </Box>
+            </Flex>
           }
-        ></Route> */}
+        >
+          <Route
+            path="/rooms"
+            element={
+              <RoomsList socket={socket} rooms={rooms} setRooms={setRooms} />
+            }
+          />
+          <Route path="/game/:roomId" element={<RoomPage socket={socket!} />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   );
