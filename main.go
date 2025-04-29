@@ -10,6 +10,10 @@ import (
 	"github.com/gorilla/sessions"
 	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
+	"github.com/markbates/goth"
+
+	"github.com/markbates/goth/gothic"
+	"github.com/markbates/goth/providers/spotify"
 	"github.com/rs/cors"
 	"github.com/tobyleye/beat-guess/models"
 	"gorm.io/driver/mysql"
@@ -44,9 +48,10 @@ type Config struct {
 }
 
 func loadConfig() (*Config, error) {
-	err := godotenv.Load()
+	err := godotenv.Load("./.env")
 
 	if err != nil {
+		log.Println("error loading config..", err)
 		return nil, err
 	}
 	config := &Config{
@@ -61,6 +66,7 @@ func main() {
 	config, _ := loadConfig()
 
 	// config.
+	fmt.Println("config..", config)
 
 	fmt.Printf("config: %v\n", config)
 
@@ -80,7 +86,7 @@ func main() {
 
 	db.AutoMigrate(&models.User{})
 
-	SessionStore := sessions.NewCookieStore([]byte("secretss.."))
+	// SessionStore := sessions.NewCookieStore([]byte("secretss.."))
 
 	rooms, err := createRooms(db)
 
@@ -101,10 +107,34 @@ func main() {
 		Debug:            true,
 	})
 
+	// initialize goth
+	goth.UseProviders(
+		spotify.New(
+			config.spotifyClientId,
+			config.spotifyClientSecret,
+			SPOTIFY_REDIRECT_URI,
+		),
+	)
+
+	key := os.Getenv("SESSION_KEY")
+
+	// maxAge := 86400 * 30 // 30 days
+	// isProd := false      // Set to true when serving over https
+
+	store := sessions.NewCookieStore([]byte(key))
+
+	// store.MaxAge(maxAge)
+	// store.Options.Path = "/"
+	// store.Options.HttpOnly = true // HttpOnly should always be enabled
+	// store.Options.Secure = isProd
+
+	gothic.Store = store
+
+	// initialize game server
 	server := GameServer{
 		rooms:        rooms,
 		connections:  map[string]*websocket.Conn{},
-		SessionStore: SessionStore,
+		SessionStore: store,
 		message:      make(chan IncomingMessage),
 		db:           db,
 	}
@@ -113,7 +143,7 @@ func main() {
 
 	handlers := Handlers{
 		Db:           db,
-		SessionStore: SessionStore,
+		SessionStore: store,
 		Config:       config,
 	}
 
@@ -125,7 +155,7 @@ func main() {
 
 	defaultHandler := c.Handler(http.DefaultServeMux)
 
-	fmt.Println("Server started at localhost:1234")
+	log.Println("Server started at localhost:1234")
 
 	// stop := make(chan os.Signal, 1)
 	// signal.Notify(stop, os.Interrupt, syscall.SIGTERM, syscall.SIGABRT, os.Kill)
